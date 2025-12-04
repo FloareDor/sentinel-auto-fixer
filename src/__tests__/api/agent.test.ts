@@ -2,15 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
 // Mock the compiled graph
+const mockInvoke = vi.fn();
 vi.mock('@/lib/langgraph/graph', () => ({
   compiledGraph: {
-    invoke: vi.fn(),
+    invoke: mockInvoke,
   },
 }));
 
 // Import after mocking
 import { POST } from '../../app/api/agent/route';
-import { compiledGraph } from '../../lib/langgraph/graph';
 
 describe('Agent API Route', () => {
   beforeEach(() => {
@@ -56,7 +56,7 @@ describe('Agent API Route', () => {
       };
 
       // Mock the invoke method to return the final state
-      compiledGraph.invoke.mockResolvedValue(mockFinalState);
+      mockInvoke.mockResolvedValue(mockFinalState);
 
       const requestBody = {
         errorLogs: 'TypeError: Cannot read property \'foo\' of undefined',
@@ -77,9 +77,26 @@ describe('Agent API Route', () => {
       expect(response.headers.get('content-type')).toContain('text/event-stream');
 
       // Check that the response body contains streaming data
-      const responseBody = await response.text();
+      if (!response.body) {
+        throw new Error('Response body is null');
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let responseBody = '';
+      
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          responseBody += decoder.decode(value, { stream: true });
+        }
+      } finally {
+        reader.releaseLock();
+      }
+      
       expect(responseBody).toBeDefined();
       expect(responseBody.length).toBeGreaterThan(0);
+      expect(responseBody).toContain('data:');
     });
 
     it('should validate request body and return 400 for invalid input', async () => {
@@ -106,7 +123,7 @@ describe('Agent API Route', () => {
 
     it('should handle graph execution errors and return 500', async () => {
       // Mock graph execution error
-      compiledGraph.invoke.mockRejectedValue(new Error('Graph execution failed'));
+      mockInvoke.mockRejectedValue(new Error('Graph execution failed'));
 
       const requestBody = {
         errorLogs: 'Some error',
@@ -142,7 +159,7 @@ describe('Agent API Route', () => {
       const responseData = await response.json();
 
       expect(response.status).toBe(400);
-      expect(responseData.error).toBe('Invalid request body');
+      expect(responseData.error).toBe('Invalid JSON in request body');
     });
   });
 });

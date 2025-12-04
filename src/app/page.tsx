@@ -1,18 +1,26 @@
 "use client";
 
+import { useState } from "react";
 import { CodeInputPanel } from "@/components/code-input-panel";
 import { AgentActivityStream } from "@/components/agent-activity-stream";
 import { CodeDiffView } from "@/components/code-diff-view";
 import { StatusBar } from "@/components/status-bar";
 import { TaskBar } from "@/components/taskbar";
 import { useAgentStream } from "@/hooks/use-agent-stream";
+import { AboutDialog } from "@/components/easter-eggs/about-dialog";
+import { SystemPropertiesDialog } from "@/components/easter-eggs/system-properties";
 
 export default function Home() {
   const { thoughts, result, isStreaming, error, submit } = useAgentStream();
+  const [showAboutDialog, setShowAboutDialog] = useState(false);
+  const [showSystemPropertiesDialog, setShowSystemPropertiesDialog] = useState(false);
 
   const handleSubmit = async (errorLogs: string, sourceCode: string) => {
     await submit({ errorLogs, sourceCode });
   };
+
+  const toggleAboutDialog = () => setShowAboutDialog(!showAboutDialog);
+  const toggleSystemPropertiesDialog = () => setShowSystemPropertiesDialog(!showSystemPropertiesDialog);
 
   return (
     <div className="h-screen flex flex-col bg-win95-desktop">
@@ -39,8 +47,15 @@ export default function Home() {
           hasResult={result !== null}
           error={error}
         />
-        <TaskBar />
+        <TaskBar
+          onAboutClick={toggleAboutDialog}
+          onSystemPropertiesClick={toggleSystemPropertiesDialog}
+        />
       </div>
+
+      {/* Easter Egg Dialogs */}
+      <AboutDialog isOpen={showAboutDialog} onClose={toggleAboutDialog} />
+      <SystemPropertiesDialog isOpen={showSystemPropertiesDialog} onClose={toggleSystemPropertiesDialog} />
     </div>
   );
 }

@@ -14,6 +14,10 @@ export const DIAGNOSTICIAN_QUIPS: PersonalityQuip[] = [
   { nodeType: 'diagnostician', type: 'thinking', text: 'Interesting... let me examine this more closely...', intensity: 'medium' },
   { nodeType: 'diagnostician', type: 'thinking', text: 'The clues are pointing to...', intensity: 'low' },
   { nodeType: 'diagnostician', type: 'thinking', text: 'This looks like a classic case of...', intensity: 'medium' },
+  { nodeType: 'diagnostician', type: 'thinking', text: 'Examining the symptoms carefully...', intensity: 'low' },
+  { nodeType: 'diagnostician', type: 'thinking', text: 'Let me follow this thread...', intensity: 'low' },
+  { nodeType: 'diagnostician', type: 'thinking', text: 'The evidence is mounting...', intensity: 'medium' },
+  { nodeType: 'diagnostician', type: 'thinking', text: 'Something doesn\'t add up here...', intensity: 'medium' },
 
   // Success quips - when finding root cause
   { nodeType: 'diagnostician', type: 'success', text: 'Found it! The root cause is...', intensity: 'high' },
@@ -47,6 +51,10 @@ export const ARCHITECT_QUIPS: PersonalityQuip[] = [
   { nodeType: 'architect', type: 'thinking', text: 'Let me map out the solution architecture...', intensity: 'low' },
   { nodeType: 'architect', type: 'thinking', text: 'Considering multiple approaches...', intensity: 'low' },
   { nodeType: 'architect', type: 'thinking', text: 'The optimal path forward is...', intensity: 'medium' },
+  { nodeType: 'architect', type: 'thinking', text: 'Time to architect a solution...', intensity: 'medium' },
+  { nodeType: 'architect', type: 'thinking', text: 'Let me design the blueprint...', intensity: 'low' },
+  { nodeType: 'architect', type: 'thinking', text: 'This needs careful planning...', intensity: 'medium' },
+  { nodeType: 'architect', type: 'thinking', text: 'Building the strategy step by step...', intensity: 'low' },
 
   // Success quips - when plan is ready
   { nodeType: 'architect', type: 'success', text: 'Plan locked in! Let\'s execute...', intensity: 'high' },
@@ -80,6 +88,10 @@ export const SURGEON_QUIPS: PersonalityQuip[] = [
   { nodeType: 'surgeon', type: 'thinking', text: 'Performing microsurgery on this code...', intensity: 'medium' },
   { nodeType: 'surgeon', type: 'thinking', text: 'Careful placement of the fix...', intensity: 'low' },
   { nodeType: 'surgeon', type: 'thinking', text: 'Precision work required here...', intensity: 'medium' },
+  { nodeType: 'surgeon', type: 'thinking', text: 'Surgical precision in action...', intensity: 'medium' },
+  { nodeType: 'surgeon', type: 'thinking', text: 'Let me apply this fix with care...', intensity: 'low' },
+  { nodeType: 'surgeon', type: 'thinking', text: 'Operating on the codebase...', intensity: 'medium' },
+  { nodeType: 'surgeon', type: 'thinking', text: 'Delicate work ahead...', intensity: 'medium' },
 
   // Success quips - when surgery succeeds
   { nodeType: 'surgeon', type: 'success', text: 'Surgery successful! The fix is in place...', intensity: 'high' },
@@ -113,6 +125,10 @@ export const VERIFIER_QUIPS: PersonalityQuip[] = [
   { nodeType: 'verifier', type: 'thinking', text: 'Final inspection underway...', intensity: 'low' },
   { nodeType: 'verifier', type: 'thinking', text: 'Checking all the boxes...', intensity: 'low' },
   { nodeType: 'verifier', type: 'thinking', text: 'Ensuring everything is shipshape...', intensity: 'medium' },
+  { nodeType: 'verifier', type: 'thinking', text: 'Quality control activated...', intensity: 'medium' },
+  { nodeType: 'verifier', type: 'thinking', text: 'Let me verify this thoroughly...', intensity: 'low' },
+  { nodeType: 'verifier', type: 'thinking', text: 'Testing the final result...', intensity: 'medium' },
+  { nodeType: 'verifier', type: 'thinking', text: 'Validation in progress...', intensity: 'low' },
 
   // Success quips - when verification passes
   { nodeType: 'verifier', type: 'success', text: 'All systems operational!', intensity: 'high' },

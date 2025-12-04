@@ -21,10 +21,8 @@ export async function POST(request: NextRequest) {
       body = await request.json();
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
-      const text = await request.text();
-      console.error('Raw request body:', text);
       return NextResponse.json(
-        { error: 'Invalid JSON in request body', raw: text },
+        { error: 'Invalid JSON in request body' },
         { status: 400 }
       );
     }
@@ -42,58 +40,57 @@ export async function POST(request: NextRequest) {
     // Create initial state
     const initialState = createInitialState(errorLogs, sourceCode);
 
+    // Run the compiled graph and handle errors
+    let finalState;
+    try {
+      finalState = await compiledGraph.invoke(initialState);
+    } catch (graphError) {
+      // Graph execution failed - return 500 error
+      throw graphError;
+    }
+
     // Create a ReadableStream for server-sent events
     const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          // Run the compiled graph
-          const finalState = await compiledGraph.invoke(initialState);
-
-          // Emit thought events for all reasoning traces
-          finalState.reasoningTrace.forEach((trace) => {
-            const eventData = JSON.stringify({
-              type: 'thought',
-              node: trace.node,
-              content: trace.thought,
-              step: trace.step,
-              timestamp: trace.timestamp,
-            });
-            controller.enqueue(`data: ${eventData}\n\n`);
+      start(controller) {
+        // Emit thought events for all reasoning traces
+        finalState.reasoningTrace.forEach((trace) => {
+          const eventData = JSON.stringify({
+            type: 'thought',
+            node: trace.node,
+            content: trace.thought,
+            step: trace.step,
+            timestamp: trace.timestamp,
           });
+          const encoder = new TextEncoder();
+          controller.enqueue(encoder.encode(`data: ${eventData}\n\n`));
+        });
 
-          // Emit final result
-          if (finalState.fixedCode) {
-            const resultData = JSON.stringify({
-              type: 'result',
-              originalCode: finalState.originalCode,
-              fixedCode: finalState.fixedCode,
-              explanation: finalState.reasoningTrace
-                .map(trace => `${trace.node}: ${trace.thought}`)
-                .join('\n'),
-            });
-            controller.enqueue(`data: ${resultData}\n\n`);
-          } else {
-            // Handle case where no fix was generated
-            const resultData = JSON.stringify({
-              type: 'result',
-              originalCode: initialState.originalCode,
-              fixedCode: null,
-              explanation: 'Unable to generate a fix for the provided error logs and source code.',
-            });
-            controller.enqueue(`data: ${resultData}\n\n`);
-          }
-
-          // Close the stream
-          controller.close();
-        } catch (error) {
-          // Emit error event
-          const errorData = JSON.stringify({
-            type: 'error',
-            message: error instanceof Error ? error.message : 'Unknown error occurred',
+        // Emit final result
+        if (finalState.fixedCode) {
+          const resultData = JSON.stringify({
+            type: 'result',
+            originalCode: finalState.originalCode,
+            fixedCode: finalState.fixedCode,
+            explanation: finalState.reasoningTrace
+              .map(trace => `${trace.node}: ${trace.thought}`)
+              .join('\n'),
           });
-          controller.enqueue(`data: ${errorData}\n\n`);
-          controller.close();
+          const encoder = new TextEncoder();
+          controller.enqueue(encoder.encode(`data: ${resultData}\n\n`));
+        } else {
+          // Handle case where no fix was generated
+          const resultData = JSON.stringify({
+            type: 'result',
+            originalCode: initialState.originalCode,
+            fixedCode: null,
+            explanation: 'Unable to generate a fix for the provided error logs and source code.',
+          });
+          const encoder = new TextEncoder();
+          controller.enqueue(encoder.encode(`data: ${resultData}\n\n`));
         }
+
+        // Close the stream
+        controller.close();
       },
     });
 
