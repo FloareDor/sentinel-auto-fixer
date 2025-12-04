@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { diagnosticianNode } from '../diagnostician';
 import { createInitialState } from '../../state';
+import { createGeminiClient } from '../../../gemini/client';
+import { getPersonalityPrompt } from '../../../gemini/prompts';
 
 // Mock the Gemini client
 vi.mock('../../../gemini/client', () => ({
@@ -22,12 +24,11 @@ describe('diagnosticianNode', () => {
       generateStructured: vi.fn(),
     };
 
-    // Import the mocked modules
-    const { createGeminiClient } = vi.mocked(require('../../../gemini/client'));
-    const { getPersonalityPrompt } = vi.mocked(require('../../../gemini/prompts'));
+    const mockedCreateGeminiClient = vi.mocked(createGeminiClient);
+    const mockedGetPersonalityPrompt = vi.mocked(getPersonalityPrompt);
 
-    createGeminiClient.mockReturnValue(mockClient);
-    getPersonalityPrompt.mockReturnValue('Enhanced diagnostician prompt');
+    mockedCreateGeminiClient.mockReturnValue(mockClient);
+    mockedGetPersonalityPrompt.mockReturnValue('Enhanced diagnostician prompt');
   });
 
   it('should execute diagnostician node and return structured response', async () => {

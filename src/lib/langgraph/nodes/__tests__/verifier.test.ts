@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { verifierNode } from '../verifier';
 import { createInitialState } from '../../state';
 import { createGeminiClient } from '../../../gemini/client';
+import { getPersonalityPrompt } from '../../../gemini/prompts';
 
 // Mock the Gemini client
 vi.mock('../../../gemini/client', () => ({
@@ -23,11 +24,11 @@ describe('verifierNode', () => {
       generateStructured: vi.fn(),
     };
 
-    const { createGeminiClient } = require('../../../gemini/client');
-    createGeminiClient.mockReturnValue(mockClient);
+    const mockedCreateGeminiClient = vi.mocked(createGeminiClient);
+    const mockedGetPersonalityPrompt = vi.mocked(getPersonalityPrompt);
 
-    const { getPersonalityPrompt } = require('../../../gemini/prompts');
-    getPersonalityPrompt.mockReturnValue('Enhanced verifier prompt');
+    mockedCreateGeminiClient.mockReturnValue(mockClient);
+    mockedGetPersonalityPrompt.mockReturnValue('Enhanced verifier prompt');
   });
 
   it('should execute verifier node and approve patch', async () => {

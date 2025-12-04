@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { surgeonNode } from '../surgeon';
 import { createInitialState } from '../../state';
 import { createGeminiClient } from '../../../gemini/client';
+import { getPersonalityPrompt } from '../../../gemini/prompts';
 
 // Mock the Gemini client
 vi.mock('../../../gemini/client', () => ({
@@ -23,11 +24,11 @@ describe('surgeonNode', () => {
       generateStructured: vi.fn(),
     };
 
-    const { createGeminiClient } = require('../../../gemini/client');
-    createGeminiClient.mockReturnValue(mockClient);
+    const mockedCreateGeminiClient = vi.mocked(createGeminiClient);
+    const mockedGetPersonalityPrompt = vi.mocked(getPersonalityPrompt);
 
-    const { getPersonalityPrompt } = require('../../../gemini/prompts');
-    getPersonalityPrompt.mockReturnValue('Enhanced surgeon prompt');
+    mockedCreateGeminiClient.mockReturnValue(mockClient);
+    mockedGetPersonalityPrompt.mockReturnValue('Enhanced surgeon prompt');
   });
 
   it('should execute surgeon node and return structured response', async () => {
