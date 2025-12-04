@@ -74,13 +74,16 @@ export class GeminiClient {
     try {
       const finalConfig = { ...DEFAULT_CONFIG, ...config };
 
+      let enhancedPrompt = prompt;
+      if (finalConfig.systemInstruction) {
+        enhancedPrompt = `${finalConfig.systemInstruction}\n\n${prompt}`;
+      }
+
       const result = await generateObject({
         model: this.model,
         schema,
-        prompt,
+        prompt: enhancedPrompt,
         temperature: finalConfig.temperature,
-        maxTokens: finalConfig.maxTokens,
-        system: finalConfig.systemInstruction || undefined,
       });
 
       return {
@@ -106,12 +109,15 @@ export class GeminiClient {
     try {
       const finalConfig = { ...DEFAULT_CONFIG, ...config };
 
+      let enhancedPrompt = prompt;
+      if (finalConfig.systemInstruction) {
+        enhancedPrompt = `${finalConfig.systemInstruction}\n\n${prompt}`;
+      }
+
       const result = await generateText({
         model: this.model,
-        prompt,
+        prompt: enhancedPrompt,
         temperature: finalConfig.temperature,
-        maxTokens: finalConfig.maxTokens,
-        system: finalConfig.systemInstruction || undefined,
       });
 
       return {
