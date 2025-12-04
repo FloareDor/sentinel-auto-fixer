@@ -1,23 +1,26 @@
+"use client";
+
 import { Window } from "@/components/windows95/window";
+import ReactDiffViewer from 'react-diff-viewer-continued';
+import { Result } from "@/hooks/use-agent-stream";
 
-const mockOriginalCode = `function processUser(user) {
-  if (user.age < 18) {
-    return "minor";
-  }
-  return "adult";
-}`;
+interface CodeDiffViewProps {
+  result: Result | null;
+}
 
-const mockFixedCode = `function processUser(user) {
-  if (!user || typeof user.age !== 'number') {
-    throw new Error("Invalid user object");
+export function CodeDiffView({ result }: CodeDiffViewProps) {
+  if (!result) {
+    return (
+      <Window title="Code Diff View" className="h-full">
+        <div className="flex items-center justify-center h-full">
+          <p className="win95-ui text-sm text-win95-dark-gray">
+            Code diff will appear here after processing...
+          </p>
+        </div>
+      </Window>
+    );
   }
-  if (user.age < 18) {
-    return "minor";
-  }
-  return "adult";
-}`;
 
-export function CodeDiffView() {
   return (
     <Window title="Code Diff View" className="h-full">
       <div className="space-y-4 h-full flex flex-col">
@@ -32,23 +35,45 @@ export function CodeDiffView() {
           </div>
         </div>
 
-        <div className="flex-1 grid grid-cols-2 gap-4">
-          {/* Original Code */}
-          <div className="space-y-2">
-            <h3 className="win95-ui text-sm font-bold text-red-600">Original</h3>
-            <pre className="win95-border-inset bg-win95-white p-3 win95-code text-sm overflow-x-auto h-full">
-              {mockOriginalCode}
-            </pre>
-          </div>
-
-          {/* Fixed Code */}
-          <div className="space-y-2">
-            <h3 className="win95-ui text-sm font-bold text-green-600">Fixed</h3>
-            <pre className="win95-border-inset bg-win95-white p-3 win95-code text-sm overflow-x-auto h-full">
-              {mockFixedCode}
-            </pre>
-          </div>
+        <div className="flex-1">
+          <ReactDiffViewer
+            oldValue={result.originalCode}
+            newValue={result.fixedCode || ""}
+            splitView={true}
+            useDarkTheme={false}
+            showDiffOnly={false}
+            disableWordDiff={false}
+            styles={{
+              diffContainer: {
+                fontFamily: "'Courier New', monospace",
+                fontSize: "14px",
+              },
+              diffRemoved: {
+                backgroundColor: "#ffeef0",
+              },
+              diffAdded: {
+                backgroundColor: "#e6ffed",
+              },
+              line: {
+                fontFamily: "'Courier New', monospace",
+              },
+              contentText: {
+                fontFamily: "'Courier New', monospace",
+              },
+            }}
+          />
         </div>
+
+        {result.explanation && (
+          <div className="mt-4 p-3 bg-win95-gray win95-border-inset">
+            <h4 className="win95-ui text-sm font-bold text-win95-black mb-2">
+              Explanation:
+            </h4>
+            <p className="win95-ui text-sm text-win95-black">
+              {result.explanation}
+            </p>
+          </div>
+        )}
       </div>
     </Window>
   );

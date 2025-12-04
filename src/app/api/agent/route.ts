@@ -16,7 +16,18 @@ const AgentRequestSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     // Parse and validate request body
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      const text = await request.text();
+      console.error('Raw request body:', text);
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body', raw: text },
+        { status: 400 }
+      );
+    }
     const validationResult = AgentRequestSchema.safeParse(body);
 
     if (!validationResult.success) {

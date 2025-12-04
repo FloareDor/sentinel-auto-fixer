@@ -4,7 +4,7 @@ import { NextRequest } from 'next/server';
 // Mock the compiled graph
 vi.mock('@/lib/langgraph/graph', () => ({
   compiledGraph: {
-    stream: vi.fn(),
+    invoke: vi.fn(),
   },
 }));
 
@@ -55,9 +55,8 @@ describe('Agent API Route', () => {
         fixedCode: 'console.log(data?.foo)',
       };
 
-      // Mock the stream method to return an async iterable
-      const mockStream = [mockFinalState];
-      compiledGraph.stream.mockResolvedValue(mockStream);
+      // Mock the invoke method to return the final state
+      compiledGraph.invoke.mockResolvedValue(mockFinalState);
 
       const requestBody = {
         errorLogs: 'TypeError: Cannot read property \'foo\' of undefined',
@@ -75,7 +74,7 @@ describe('Agent API Route', () => {
       const response = await POST(request);
 
       expect(response.status).toBe(200);
-      expect(response.headers.get('content-type')).toContain('text/plain');
+      expect(response.headers.get('content-type')).toContain('text/event-stream');
 
       // Check that the response body contains streaming data
       const responseBody = await response.text();
@@ -107,7 +106,7 @@ describe('Agent API Route', () => {
 
     it('should handle graph execution errors and return 500', async () => {
       // Mock graph execution error
-      compiledGraph.stream.mockRejectedValue(new Error('Graph execution failed'));
+      compiledGraph.invoke.mockRejectedValue(new Error('Graph execution failed'));
 
       const requestBody = {
         errorLogs: 'Some error',
