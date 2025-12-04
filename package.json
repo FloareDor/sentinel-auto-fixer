@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^2.0.44",
+    "@langchain/core": "^1.1.2",
     "@langchain/langgraph": "^1.0.3",
     "@radix-ui/react-slot": "^1.2.4",
     "@testing-library/jest-dom": "^6.9.1",
@@ -24,6 +25,7 @@
     "lucide-react": "^0.555.0",
     "next": "16.0.7",
     "react": "19.2.0",
+    "react-diff-viewer-continued": "^3.4.0",
     "react-dom": "19.2.0",
     "tailwind-merge": "^3.4.0",
     "vitest": "^4.0.15",
