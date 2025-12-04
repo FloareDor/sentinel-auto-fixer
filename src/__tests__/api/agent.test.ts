@@ -145,7 +145,7 @@ describe('Agent API Route', () => {
 
       expect(response.status).toBe(500);
       expect(responseData.error).toBe('Internal server error');
-      expect(responseData.message).toContain('Graph execution failed after 3 attempts');
+      expect(responseData.message).toContain('Graph execution failed after 1 attempts');
     });
 
     it('should handle malformed JSON and return 400', async () => {

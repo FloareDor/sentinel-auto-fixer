@@ -1,0 +1,256 @@
+name: 'Sentinel Auto-Fix'
+description: '🤖 Automatically fix CI/CD failures using AI'
+author: 'Sentinel Team'
+inputs:
+  sentinel-api-url:
+    description: 'URL of your Sentinel API deployment'
+    required: true
+  sentinel-api-key:
+    description: 'API key for Sentinel authentication'
+    required: true
+  github-token:
+    description: 'GitHub token for creating branches and PRs'
+    required: true
+    default: ${{ github.token }}
+  retry-depth:
+    description: 'Number of retry attempts (1-3)'
+    required: false
+    default: '3'
+  base-branch:
+    description: 'Base branch to create PR against'
+    required: false
+    default: 'main'
+  file-patterns:
+    description: 'File patterns to analyze (comma-separated)'
+    required: false
+    default: '*.js,*.ts,*.py,*.java,*.cpp,*.go,*.rs'
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ inputs.github-token }}
+
+    - name: Get failed workflow details
+      id: workflow-info
+      shell: bash
+      run: |
+        echo "workflow_name=${{ github.event.workflow_run.name }}" >> $GITHUB_OUTPUT
+        echo "run_id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
+        echo "head_sha=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
+
+    - name: Extract error logs from failed run
+      id: error-logs
+      shell: bash
+      run: |
+        # Get comprehensive logs from failed workflow
+        LOGS=$(gh run view ${{ github.event.workflow_run.id }} --log 2>/dev/null || echo "Failed to get logs")
+
+        # Extract various error patterns
+        ERRORS=$(echo "$LOGS" | grep -i "error\|failed\|exception\|fail\|cannot\|undefined\|null" | head -50 | sed 's/.*step.*]//' | sed 's/^[[:space:]]*//')
+
+        # If no specific errors found, get last 20 lines
+        if [ -z "$ERRORS" ]; then
+          ERRORS=$(echo "$LOGS" | tail -20)
+        fi
+
+        echo "error_logs<<EOF" >> $GITHUB_OUTPUT
+        echo "$ERRORS"
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Get changed source files
+      id: changed-files
+      shell: bash
+      run: |
+        # Get files changed in the failing commit
+        CHANGED_FILES=$(git diff --name-only ${{ github.event.workflow_run.head_sha }}~1 ${{ github.event.workflow_run.head_sha }} 2>/dev/null || git show --name-only ${{ github.event.workflow_run.head_sha }} | grep -E '\.(js|ts|py|java|cpp|go|rs)$' || echo "")
+
+        # Filter by configured patterns
+        IFS=',' read -ra PATTERNS <<< "${{ inputs.file-patterns }}"
+        FILTERED_FILES=""
+        for file in $CHANGED_FILES; do
+          for pattern in "${PATTERNS[@]}"; do
+            if [[ $file == $pattern ]]; then
+              FILTERED_FILES="$FILTERED_FILES $file"
+              break
+            fi
+          done
+        done
+
+        # Limit to first 3 files to avoid API limits
+        FILTERED_FILES=$(echo $FILTERED_FILES | tr ' ' '\n' | head -3 | tr '\n' ' ')
+
+        echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+        echo "$FILTERED_FILES"
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: 🤖 Attempt Sentinel Auto-Fix
+      id: sentinel-fix
+      shell: bash
+      continue-on-error: true
+      run: |
+        RETRY_DEPTH=${{ inputs.retry-depth }}
+        if [ "$RETRY_DEPTH" -gt 3 ] || [ "$RETRY_DEPTH" -lt 1 ]; then
+          RETRY_DEPTH=3
+        fi
+
+        # Build source code payload
+        SOURCE_CODE=""
+        for FILE in ${{ steps.changed-files.outputs.changed_files }}; do
+          if [ -f "$FILE" ] && [ -r "$FILE" ]; then
+            # Limit file size to 100KB to avoid API limits
+            FILE_SIZE=$(stat -f%z "$FILE" 2>/dev/null || stat -c%s "$FILE" 2>/dev/null || echo "0")
+            if [ "$FILE_SIZE" -lt 100000 ]; then
+              CONTENT=$(cat "$FILE" 2>/dev/null || echo "Could not read file")
+              SOURCE_CODE="$SOURCE_CODE\n--- $FILE ---\n$CONTENT"
+            else
+              SOURCE_CODE="$SOURCE_CODE\n--- $FILE ---\n[File too large: $FILE_SIZE bytes]"
+            fi
+          fi
+        done
+
+        # Escape JSON strings
+        ESCAPED_ERRORS=$(echo "${{ steps.error-logs.outputs.error_logs }}" | jq -R -s .)
+        ESCAPED_SOURCE=$(echo "$SOURCE_CODE" | jq -R -s .)
+
+        echo "🧪 Attempting auto-fix with retry depth: $RETRY_DEPTH"
+        echo "📁 Files to analyze: ${{ steps.changed-files.outputs.changed_files }}"
+
+        # Call Sentinel API
+        RESPONSE=$(curl -s -X POST "${{ inputs.sentinel-api-url }}/api/agent" \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer ${{ inputs.sentinel-api-key }}" \
+          -d "{
+            \"errorLogs\": $ESCAPED_ERRORS,
+            \"sourceCode\": $ESCAPED_SOURCE,
+            \"retryDepth\": $RETRY_DEPTH,
+            \"github\": {
+              \"repo\": \"${{ github.repository }}\",
+              \"sha\": \"${{ github.event.workflow_run.head_sha }}\",
+              \"workflow\": \"${{ steps.workflow-info.outputs.workflow_name }}\"
+            }
+          }")
+
+        echo "🔍 API Response: $RESPONSE"
+
+        # Check if fix was successful
+        if echo "$RESPONSE" | jq -e '.success // false' > /dev/null 2>&1; then
+          echo "✅ Auto-fix successful!"
+          echo "pr_url<<EOF" >> $GITHUB_OUTPUT
+          echo "$RESPONSE" | jq -r '.pr_url // "No PR URL"'
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "fix_summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$RESPONSE" | jq -r '.fix_summary // "Auto-fix applied"'
+          echo "EOF" >> $GITHUB_OUTPUT
+          exit 0
+        else
+          echo "❌ Auto-fix failed"
+          echo "error_details<<EOF" >> $GITHUB_OUTPUT
+          echo "$RESPONSE" | jq -r '.error // "Unknown error"'
+          echo "EOF" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+    - name: 📋 Create failure report
+      if: steps.sentinel-fix.outcome == 'failure'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const title = `🤖 Sentinel Auto-Fix Failed: ${{ github.event.workflow_run.name }}`;
+          const body = `
+          ## 🤖 Sentinel Auto-Fix Failed
+
+          **Repository:** ${{ github.repository }}
+          **Workflow:** ${{ github.event.workflow_run.name }}
+          **Run:** #${{ github.event.workflow_run.id }}
+          **Commit:** \`${{ github.event.workflow_run.head_sha }}\`
+
+          ### Error Logs
+          \`\`\`
+          ${{ steps.error-logs.outputs.error_logs }}
+          \`\`\`
+
+          ### Files Analyzed
+          ${{
+            steps.changed-files.outputs.changed_files ?
+            steps.changed-files.outputs.changed_files.split(' ').map(f => `- \`${f}\``).join('\n') :
+            'No source files found to analyze'
+          }}
+
+          ### What Happened
+          Sentinel attempted auto-fix with retry depth ${{ inputs.retry-depth }} but failed.
+
+          **Error:** ${{ steps.sentinel-fix.outputs.error_details }}
+
+          ### Possible Reasons
+          - Complex multi-file issue requiring manual intervention
+          - Missing context or dependencies
+          - AI confidence threshold not met
+          - File size or complexity limits exceeded
+
+          ### Next Steps
+          1. Review the error logs and commit changes
+          2. Try the manual fix via [Sentinel Web UI](${{ inputs.sentinel-api-url }})
+          3. Consider breaking down the issue into smaller changes
+
+          ---
+          *Report generated by [Sentinel](${{ inputs.sentinel-api-url }})*
+          `;
+
+          await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title,
+            body,
+            labels: ['auto-fix-failed', 'needs-manual-review']
+          });
+
+    - name: 🎉 Comment on successful fix
+      if: steps.sentinel-fix.outcome == 'success'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const body = `
+          ## 🎉 Sentinel Auto-Fix Success!
+
+          **Workflow:** ${{ github.event.workflow_run.name }}
+          **Retry Attempts:** ${{ inputs.retry-depth }}
+
+          ### What Sentinel Did
+          ${{ steps.sentinel-fix.outputs.fix_summary }}
+
+          ### Pull Request Created
+          🔗 [Review and merge the fix](${{ steps.sentinel-fix.outputs.pr_url }})
+
+          The AI has analyzed the build failure and created a pull request with the proposed solution. Please review the changes and test them in CI before merging.
+
+          ### Files Modified
+          ${{
+            steps.changed-files.outputs.changed_files ?
+            steps.changed-files.outputs.changed_files.split(' ').map(f => `- \`${f}\``).join('\n') :
+            'See PR for details'
+          }}
+
+          ---
+          *Fix created automatically by [Sentinel](${{ inputs.sentinel-api-url }})*
+          `;
+
+          // Try to comment on the related PR if this was triggered by a PR workflow
+          if (github.event.workflow_run.pull_requests && github.event.workflow_run.pull_requests.length > 0) {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: github.event.workflow_run.pull_requests[0].number,
+              body
+            });
+          } else {
+            // Comment on the commit instead
+            await github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: github.event.workflow_run.head_sha,
+              body
+            });
+          }
