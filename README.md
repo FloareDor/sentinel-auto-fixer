@@ -174,4 +174,4 @@ MIT - Build your own CI/CD repair agent!
 
 ---
 
-**Built with love for slowly making computers disappear from our workflow, even though I love them.**
+**Built with love for slowly making computers disappear from my workflow, even though I love them.**
