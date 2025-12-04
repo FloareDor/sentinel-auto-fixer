@@ -1,26 +1,92 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Windows 95 Theme Variables */
+  --win95-gray: #C0C0C0;
+  --win95-blue: #0080FF;
+  --win95-dark-gray: #808080;
+  --win95-white: #FFFFFF;
+  --win95-black: #000000;
+  --win95-desktop: #008080; /* Teal desktop background */
+
+  /* Legacy background/foreground for compatibility */
+  --background: var(--win95-desktop);
+  --foreground: var(--win95-black);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: 'MS Sans Serif', system-ui, sans-serif;
+  --font-mono: 'Courier New', monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Windows 95 3D Border Utilities */
+.win95-border-raised {
+  border-top: 2px solid var(--win95-white);
+  border-left: 2px solid var(--win95-white);
+  border-right: 2px solid var(--win95-dark-gray);
+  border-bottom: 2px solid var(--win95-dark-gray);
+  background: var(--win95-gray);
 }
 
+.win95-border-inset {
+  border-top: 2px solid var(--win95-dark-gray);
+  border-left: 2px solid var(--win95-dark-gray);
+  border-right: 2px solid var(--win95-white);
+  border-bottom: 2px solid var(--win95-white);
+  background: var(--win95-gray);
+}
+
+.win95-border-window {
+  border-top: 2px solid var(--win95-dark-gray);
+  border-left: 2px solid var(--win95-dark-gray);
+  border-right: 2px solid var(--win95-white);
+  border-bottom: 2px solid var(--win95-white);
+}
+
+/* Windows 95 Classic Fonts */
+.win95-ui {
+  font-family: 'MS Sans Serif', system-ui, sans-serif;
+  font-size: 11px;
+}
+
+.win95-code {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+}
+
+/* Windows 95 Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--win95-gray);
+  border: 1px inset var(--win95-white);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--win95-gray);
+  border: 1px solid var(--win95-white);
+  border-top: 1px solid var(--win95-dark-gray);
+  border-left: 1px solid var(--win95-dark-gray);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--win95-blue);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--win95-gray);
+}
+
+/* Windows 95 Desktop Background */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--win95-desktop);
+  color: var(--win95-black);
+  font-family: 'MS Sans Serif', system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
 }

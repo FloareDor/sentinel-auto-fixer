@@ -1,104 +1,96 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import { Window } from "@/components/windows95/window";
+import { Button } from "@/components/windows95/button";
+import { Dialog } from "@/components/windows95/dialog";
+import { TitleBar } from "@/components/windows95/titlebar";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black p-8">
-      <main className="w-full max-w-4xl">
+    <div className="min-h-screen p-8">
+      <main className="w-full max-w-6xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-4">Sentinel MVP - shadcn/ui Test</h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Testing shadcn/ui components: Button, Card, Textarea, Badge
+          <h1 className="text-3xl font-bold mb-4 win95-ui">Sentinel MVP - Windows 95 Theme Test</h1>
+          <p className="text-win95-black mb-6 win95-ui">
+            Testing Windows 95 components: Window, Button, Dialog, TitleBar
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {/* Window Test */}
+          <Window title="Test Window">
+            <div className="space-y-4">
+              <p className="win95-ui text-sm">This is a classic Windows 95 window with 3D borders.</p>
+              <div className="flex gap-2">
+                <Button>OK</Button>
+                <Button variant="default">Default</Button>
+              </div>
+            </div>
+          </Window>
+
           {/* Button Test */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Button Component</CardTitle>
-              <CardDescription>Testing different button variants</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <Window title="Button Components">
+            <div className="space-y-4">
+              <p className="win95-ui text-sm mb-4">Testing Windows 95 style buttons:</p>
               <div className="flex gap-2 flex-wrap">
-                <Button>Default</Button>
-                <Button variant="secondary">Secondary</Button>
-                <Button variant="outline">Outline</Button>
-                <Button variant="ghost">Ghost</Button>
-                <Button variant="destructive">Destructive</Button>
+                <Button>Normal</Button>
+                <Button variant="default">Default</Button>
+                <Button disabled>Disabled</Button>
               </div>
-              <div className="flex gap-2 flex-wrap">
-                <Button size="sm">Small</Button>
-                <Button size="default">Default</Button>
-                <Button size="lg">Large</Button>
-              </div>
-            </CardContent>
-          </Card>
+              <p className="win95-ui text-sm text-win95-dark-gray">
+                Buttons have raised/inset states on interaction
+              </p>
+            </div>
+          </Window>
 
-          {/* Card Test */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Card Component</CardTitle>
-              <CardDescription>Nested card structure</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Card className="bg-gray-50 dark:bg-gray-800">
-                <CardHeader>
-                  <CardTitle className="text-lg">Nested Card</CardTitle>
-                  <CardDescription>Testing card composition</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p>This is a nested card to test component composition.</p>
-                </CardContent>
-              </Card>
-            </CardContent>
-          </Card>
+          {/* TitleBar Test */}
+          <Window title="TitleBar Component">
+            <div className="space-y-4">
+              <TitleBar title="Standalone TitleBar" />
+              <p className="win95-ui text-sm">
+                TitleBar with minimize, maximize, and close buttons (visual only)
+              </p>
+            </div>
+          </Window>
 
-          {/* Textarea Test */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Textarea Component</CardTitle>
-              <CardDescription>Form input testing</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                placeholder="Enter some text here..."
-                className="min-h-[100px]"
-                defaultValue="This is a test textarea component."
-              />
-            </CardContent>
-          </Card>
-
-          {/* Badge Test */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Badge Component</CardTitle>
-              <CardDescription>Status and label testing</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-2 flex-wrap">
-                <Badge>Default</Badge>
-                <Badge variant="secondary">Secondary</Badge>
-                <Badge variant="destructive">Destructive</Badge>
-                <Badge variant="outline">Outline</Badge>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Scrollbar Test */}
+          <Window title="Scrollbar Test">
+            <div className="space-y-2 max-h-32 overflow-y-auto">
+              <p className="win95-ui text-sm">Line 1: Testing custom scrollbars</p>
+              <p className="win95-ui text-sm">Line 2: Windows 95 style scrollbars</p>
+              <p className="win95-ui text-sm">Line 3: Should show classic appearance</p>
+              <p className="win95-ui text-sm">Line 4: With 3D beveled borders</p>
+              <p className="win95-ui text-sm">Line 5: And proper colors</p>
+              <p className="win95-ui text-sm">Line 6: More content for scrolling</p>
+              <p className="win95-ui text-sm">Line 7: Keep scrolling to see</p>
+              <p className="win95-ui text-sm">Line 8: The scrollbar styling</p>
+            </div>
+          </Window>
         </div>
 
-        <div className="mt-8 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-          <h3 className="text-lg font-semibold text-green-800 dark:text-green-200 mb-2">
-            ✅ shadcn/ui Test Status
-          </h3>
-          <ul className="text-green-700 dark:text-green-300 space-y-1">
-            <li>✓ Components render successfully</li>
-            <li>✓ Tailwind CSS classes applied</li>
-            <li>✓ Button, Card, Textarea, Badge components imported</li>
-            <li>✓ Component variants and sizes work</li>
-          </ul>
-        </div>
+        {/* Dialog Test */}
+        <Dialog title="Test Dialog">
+          <p className="win95-ui text-sm">
+            This is a modal dialog box with classic Windows 95 styling.
+            It demonstrates the dialog component functionality.
+          </p>
+        </Dialog>
+
+        {/* Status */}
+        <Window title="Test Status" className="mt-8">
+          <div className="space-y-2">
+            <h3 className="win95-ui font-bold text-win95-blue">✅ Windows 95 Theme Test Status</h3>
+            <ul className="win95-ui text-sm space-y-1">
+              <li>✓ CSS variables loaded (--win95-gray, --win95-blue, etc.)</li>
+              <li>✓ 3D border utilities working (raised/inset)</li>
+              <li>✓ Classic fonts applied (MS Sans Serif, Courier New)</li>
+              <li>✓ Scrollbars styled with Windows 95 appearance</li>
+              <li>✓ Window component renders with 3D borders</li>
+              <li>✓ Button component has interactive raised/inset states</li>
+              <li>✓ Dialog component displays as modal overlay</li>
+              <li>✓ TitleBar component shows window controls</li>
+              <li>✓ Desktop background uses teal color</li>
+            </ul>
+          </div>
+        </Window>
       </main>
     </div>
   );
