@@ -2,17 +2,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
 // Mock the compiled graph
-const mockInvoke = vi.fn();
 vi.mock('@/lib/langgraph/graph', () => ({
   compiledGraph: {
-    invoke: mockInvoke,
+    invoke: vi.fn(),
   },
 }));
 
 // Import after mocking
 import { POST } from '../../app/api/agent/route';
+import { compiledGraph } from '@/lib/langgraph/graph';
 
 describe('Agent API Route', () => {
+  const mockInvoke = vi.mocked(compiledGraph.invoke);
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
