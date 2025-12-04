@@ -144,20 +144,7 @@ Fix code with AI agents.
 
 ## 💭 Why I Built This
 
-Built Sentinel as a portfolio piece to show off AI engineering chops. Then I watched developers at my company waste hours debugging the same null pointer errors, missing semicolons, and import issues.
-
-**The insight:** Most CI failures aren't complex architecture problems - they're dumb mistakes that any junior dev could fix in 5 minutes. Why not automate the 80% that are obvious?
-
-Unlike GitHub Copilot (which just suggests), Sentinel **takes action**. It analyzes failures, generates fixes, creates PRs. The multi-agent system (diagnose → plan → implement → verify) ensures quality and prevents hallucinations.
-
-**Real talk:** This could save development teams thousands of hours annually. And it started as a "look what I can build" demo.
-
-## 📈 Impact
-
-- **60-80% reduction** in debugging time
-- **Consistent fixes** for common patterns
-- **Learning tool** - developers see AI reasoning
-- **Scalable** across all team repositories
+I hate debugging CI failures. Thought I could save few mins each week. Unlike Copilot that just suggests, Sentinel fixes and creates PRs.
 
 ## 🔒 Security
 
@@ -187,4 +174,4 @@ MIT - Build your own CI/CD repair agent!
 
 ---
 
-**Built with ❤️ using AI engineering best practices. Making developers' lives easier, one auto-fix at a time.**
+**Built with love for slowly making computers disappear from our workflow, even though I love them.**
