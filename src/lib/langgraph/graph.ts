@@ -20,15 +20,15 @@ function createGraph() {
   graph.addNode('verifier', verifierNode);
 
   // Set the entry point (where execution starts)
-  graph.setEntryPoint('diagnostician');
+  (graph as any).setEntryPoint('diagnostician');
 
   // Define the execution flow: diagnostician → architect → surgeon → verifier
-  graph.addEdge('diagnostician', 'architect');
-  graph.addEdge('architect', 'surgeon');
-  graph.addEdge('surgeon', 'verifier');
+  (graph as any).addEdge('diagnostician', 'architect');
+  (graph as any).addEdge('architect', 'surgeon');
+  (graph as any).addEdge('surgeon', 'verifier');
 
   // Set the finish point (where execution ends)
-  graph.setFinishPoint('verifier');
+  (graph as any).setFinishPoint('verifier');
 
   // Compile the graph for execution
   return graph.compile();
