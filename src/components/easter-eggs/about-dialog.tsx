@@ -90,6 +90,25 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
           </p>
         </div>
 
+        {/* Keyboard Shortcuts */}
+        <div className="bg-win95-gray win95-border-inset p-2 text-xs">
+          <p className="font-bold mb-2 text-center">Keyboard Shortcuts</p>
+          <div className="space-y-1">
+            <div className="flex justify-between">
+              <span>Submit Form:</span>
+              <span className="font-mono">Ctrl+Enter</span>
+            </div>
+            <div className="flex justify-between">
+              <span>About Dialog:</span>
+              <span className="font-mono">Alt+H</span>
+            </div>
+            <div className="flex justify-between">
+              <span>System Properties:</span>
+              <span className="font-mono">Ctrl+Shift+P</span>
+            </div>
+          </div>
+        </div>
+
         {/* Copyright */}
         <div className="text-xs text-win95-dark-gray text-center border-t border-win95-dark-gray pt-2">
           <p>© 2025 Sentinel Technologies</p>

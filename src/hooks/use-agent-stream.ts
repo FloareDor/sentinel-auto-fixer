@@ -69,10 +69,21 @@ export function useAgentStream(): UseAgentStreamReturn {
    * Submits a request to the agent API and handles the streaming response
    */
   const submit = useCallback(async (request: AgentRequest) => {
-    try {
-      // Reset state before starting new request
-      reset();
-      setIsStreaming(true);
+    let controller: AbortController | null = null;
+    let retryCount = 0;
+    const maxRetries = 2;
+    const retryDelay = 2000; // 2 seconds
+
+    const attemptSubmit = async (): Promise<void> => {
+      try {
+        // Reset state before starting new request (only on first attempt)
+        if (retryCount === 0) {
+          reset();
+          setIsStreaming(true);
+        }
+
+        // Create AbortController for request cancellation
+        controller = new AbortController();
 
       const response = await fetch('/api/agent', {
         method: 'POST',
@@ -80,6 +91,7 @@ export function useAgentStream(): UseAgentStreamReturn {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(request),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -95,12 +107,26 @@ export function useAgentStream(): UseAgentStreamReturn {
       const decoder = new TextDecoder();
 
       let buffer = '';
+      let timeoutId: NodeJS.Timeout | null = null;
+
+      // Set up timeout for stream inactivity (30 seconds)
+      const resetTimeout = () => {
+        if (timeoutId) clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          throw new Error('Stream timeout - no data received for 30 seconds');
+        }, 30000);
+      };
+
+      resetTimeout();
 
       try {
         while (true) {
           const { done, value } = await reader.read();
 
           if (done) break;
+
+          // Reset timeout on each chunk received
+          resetTimeout();
 
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
@@ -140,21 +166,58 @@ export function useAgentStream(): UseAgentStreamReturn {
                 }
               } catch (parseError) {
                 console.error('Failed to parse SSE data:', line, parseError);
+                // Continue processing other lines even if one fails
               }
             }
           }
         }
       } finally {
+        if (timeoutId) clearTimeout(timeoutId);
         reader.releaseLock();
       }
 
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      setError(errorMessage);
-      console.error('Agent stream error:', err);
-    } finally {
-      setIsStreaming(false);
-    }
+      } catch (err) {
+        // Handle different types of errors
+        let errorMessage = 'Unknown error occurred';
+        let shouldRetry = false;
+
+        if (err instanceof Error) {
+          if (err.name === 'AbortError') {
+            errorMessage = 'Request was cancelled';
+          } else if (err.message.includes('fetch') || err.message.includes('network')) {
+            errorMessage = 'Network error - please check your connection';
+            shouldRetry = retryCount < maxRetries;
+          } else if (err.message.includes('timeout')) {
+            errorMessage = 'Request timed out';
+            shouldRetry = retryCount < maxRetries;
+          } else {
+            errorMessage = err.message;
+            // Don't retry for API validation errors or other client errors
+            shouldRetry = false;
+          }
+        }
+
+        if (shouldRetry) {
+          retryCount++;
+          console.warn(`Retrying request (attempt ${retryCount}/${maxRetries}):`, errorMessage);
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          return attemptSubmit(); // Recursive retry
+        } else {
+          setError(errorMessage);
+          console.error('Agent stream error:', err);
+        }
+      } finally {
+        setIsStreaming(false);
+        // Clean up AbortController
+        if (controller) {
+          controller.abort();
+        }
+      }
+    };
+
+    // Start the submission process
+    return attemptSubmit();
   }, [reset]);
 
   return {

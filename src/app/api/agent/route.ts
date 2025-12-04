@@ -40,13 +40,28 @@ export async function POST(request: NextRequest) {
     // Create initial state
     const initialState = createInitialState(errorLogs, sourceCode);
 
-    // Run the compiled graph and handle errors
+    // Run the compiled graph with retry logic
     let finalState;
-    try {
-      finalState = await compiledGraph.invoke(initialState);
-    } catch (graphError) {
-      // Graph execution failed - return 500 error
-      throw graphError;
+    let attempts = 0;
+    const maxAttempts = 3;
+    const retryDelay = 1000; // 1 second
+
+    while (attempts < maxAttempts) {
+      try {
+        finalState = await compiledGraph.invoke(initialState);
+        break; // Success, exit retry loop
+      } catch (graphError) {
+        attempts++;
+        console.error(`Graph execution attempt ${attempts} failed:`, graphError);
+
+        if (attempts >= maxAttempts) {
+          // All attempts failed
+          throw new Error(`Graph execution failed after ${maxAttempts} attempts: ${graphError instanceof Error ? graphError.message : 'Unknown error'}`);
+        }
+
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, retryDelay * attempts));
+      }
     }
 
     // Create a ReadableStream for server-sent events

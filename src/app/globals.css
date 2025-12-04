@@ -90,3 +90,33 @@ body {
   margin: 0;
   padding: 0;
 }
+
+/* Windows 95 Cursor States */
+.cursor-wait {
+  cursor: wait;
+}
+
+.cursor-hourglass {
+  cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="none" stroke="black" stroke-width="2" d="M12 2v6m0 8v6m-6-6h6m8 0h6"/></svg>') 12 12, wait;
+}
+
+/* Processing state for the entire app */
+.processing {
+  cursor: wait !important;
+}
+
+.processing * {
+  cursor: wait !important;
+}
+
+/* Focus states for better accessibility */
+*:focus {
+  outline: 1px dotted var(--win95-blue);
+  outline-offset: 1px;
+}
+
+/* Consistent hover effects */
+.hover-win95:hover {
+  background-color: var(--win95-blue) !important;
+  color: var(--win95-white) !important;
+}

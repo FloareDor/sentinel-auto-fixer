@@ -19,7 +19,7 @@ export function StatusBar({ isStreaming, hasResult, error }: StatusBarProps) {
 
   return (
     <div className="win95-border-raised bg-win95-gray h-6 flex items-center px-2">
-      <div className="text-xs win95-ui text-win95-black">
+      <div className="text-xs win95-ui text-win95-black transition-colors duration-200">
         {statusMessage}
       </div>
     </div>

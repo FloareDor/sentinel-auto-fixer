@@ -28,25 +28,25 @@ describe('Agent API Route', () => {
         attempts: 0,
         reasoningTrace: [
           {
-            step: 'diagnose',
+            step: 'diagnose' as const,
             thought: 'This looks like a null reference error',
             timestamp: Date.now(),
             node: 'diagnostician',
           },
           {
-            step: 'plan',
+            step: 'plan' as const,
             thought: 'I need to add null checks',
             timestamp: Date.now(),
             node: 'architect',
           },
           {
-            step: 'fix',
+            step: 'fix' as const,
             thought: 'Adding null check before accessing foo',
             timestamp: Date.now(),
             node: 'surgeon',
           },
           {
-            step: 'verify',
+            step: 'verify' as const,
             thought: 'Code looks good now',
             timestamp: Date.now(),
             node: 'verifier',
@@ -145,7 +145,7 @@ describe('Agent API Route', () => {
 
       expect(response.status).toBe(500);
       expect(responseData.error).toBe('Internal server error');
-      expect(responseData.message).toBe('Graph execution failed');
+      expect(responseData.message).toContain('Graph execution failed after 3 attempts');
     });
 
     it('should handle malformed JSON and return 400', async () => {

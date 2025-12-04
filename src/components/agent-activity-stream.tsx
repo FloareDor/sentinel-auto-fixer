@@ -11,7 +11,7 @@ interface AgentActivityStreamProps {
 export function AgentActivityStream({ thoughts }: AgentActivityStreamProps) {
   return (
     <Window title="Agent Activity Stream">
-      <div className="space-y-3 h-64 overflow-y-auto">
+      <div className="space-y-3 h-48 md:h-64 overflow-y-auto scroll-smooth">
         {thoughts.length === 0 ? (
           <div className="text-center py-8">
             <p className="win95-ui text-sm text-win95-dark-gray">
@@ -22,7 +22,7 @@ export function AgentActivityStream({ thoughts }: AgentActivityStreamProps) {
           thoughts.map((thought, index) => (
             <div
               key={`${thought.timestamp}-${index}`}
-              className="border-l-2 border-win95-blue pl-3 py-2 animate-in fade-in slide-in-from-bottom-2 duration-300"
+              className="border-l-2 border-win95-blue pl-3 py-2 animate-in fade-in slide-in-from-bottom-2 duration-500 ease-in-out"
             >
               <div className="flex items-center gap-2 mb-1">
                 <Badge variant="outline" className="win95-ui text-xs px-2 py-0">

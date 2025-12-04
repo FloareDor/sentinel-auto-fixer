@@ -23,7 +23,7 @@ export function Button({
   const handleMouseUp = () => setIsPressed(false);
   const handleMouseLeave = () => setIsPressed(false);
 
-  const baseClasses = 'win95-ui px-4 py-1 text-xs cursor-pointer select-none inline-block';
+  const baseClasses = 'win95-ui px-4 py-1 text-xs cursor-pointer select-none inline-block transition-all duration-100';
   const stateClasses = isPressed
     ? 'win95-border-inset'
     : 'win95-border-raised';
