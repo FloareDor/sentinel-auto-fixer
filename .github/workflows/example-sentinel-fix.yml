@@ -1,0 +1,268 @@
+# Example Sentinel Auto-Fix Workflow
+# Copy this file to your repository as .github/workflows/sentinel-fix.yml
+# and customize the workflow name and branch settings
+
+name: 🤖 Sentinel Auto-Fix
+
+on:
+  workflow_run:
+    workflows: ["CI"]  # Change to match your CI workflow name
+    types: [completed]
+    branches: [main]  # Change to your default branch
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'failure'
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Authenticate GitHub CLI
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+
+      - name: Get error logs from failed run
+        id: error-logs
+        run: |
+          echo "🔍 Attempting to fetch logs from failed workflow run..."
+          
+          # Try multiple methods to get logs
+          LOGS=""
+          
+          # Method 1: GitHub CLI
+          LOGS=$(gh run view ${{ github.event.workflow_run.id }} --log 2>&1 || echo "")
+          if [ -z "$LOGS" ] || echo "$LOGS" | grep -q "Failed\|not found\|error"; then
+            echo "⚠️ GitHub CLI method failed, trying API..."
+            
+            # Method 2: GitHub API
+            RUN_ID=${{ github.event.workflow_run.id }}
+            REPO=${{ github.repository }}
+            LOGS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/$REPO/actions/runs/$RUN_ID/logs" 2>&1 || echo "")
+            
+            if [ -z "$LOGS" ] || echo "$LOGS" | grep -q "Not Found\|error"; then
+              echo "⚠️ API method also failed, using workflow_run conclusion..."
+              # Method 3: Fallback - use workflow_run event data
+              LOGS="Workflow: ${{ github.event.workflow_run.name }} failed.
+              Status: ${{ github.event.workflow_run.conclusion }}
+              Commit: ${{ github.event.workflow_run.head_sha }}
+              Run ID: ${{ github.event.workflow_run.id }}
+              
+              Note: Unable to fetch detailed logs. This might be a build, test, or lint failure.
+              Check the Actions tab for full error details."
+            fi
+          fi
+          
+          # Extract error patterns - get more context
+          ERRORS=$(echo "$LOGS" | grep -i -A 3 -B 3 "error\|failed\|exception\|fail\|cannot\|undefined\|null\|TypeError\|ReferenceError\|SyntaxError\|ModuleNotFoundError" | head -200)
+          if [ -z "$ERRORS" ]; then
+            # If no specific errors, get last 100 lines which usually contain the failure
+            ERRORS=$(echo "$LOGS" | tail -100)
+          fi
+          
+          # If still empty, create a meaningful error message
+          if [ -z "$ERRORS" ] || [ "$(echo "$ERRORS" | wc -c)" -lt 10 ]; then
+            ERRORS="CI workflow failed but detailed logs unavailable. 
+            Common causes: missing dependencies, TypeScript errors, import path issues, or test failures.
+            Workflow: ${{ github.event.workflow_run.name }}
+            Run ID: ${{ github.event.workflow_run.id }}"
+          fi
+          
+          echo "📝 Extracted error logs ($(echo "$ERRORS" | wc -c) characters)"
+          
+          # Save for JSON
+          echo "error_logs<<EOF" >> $GITHUB_OUTPUT
+          echo "$ERRORS"
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          # Also save raw logs for file extraction
+          echo "raw_logs<<EOF" >> $GITHUB_OUTPUT
+          echo "$LOGS"
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Smart file detection - analyze diff and errors
+        id: source-files
+        run: |
+          echo "🔍 Step 1: Analyzing commit diff..."
+          # Get changed source files from commit diff
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.workflow_run.head_sha }}~1 ${{ github.event.workflow_run.head_sha }} 2>/dev/null | grep -E '\.(js|ts|jsx|tsx|json)$' || echo "")
+          
+          echo "📝 Changed files in commit:"
+          echo "$CHANGED_FILES" || echo "(none)"
+          
+          echo ""
+          echo "🔍 Step 2: Extracting file paths from error logs..."
+          # Extract file paths mentioned in error logs
+          # Patterns: "app/page.tsx:15:3", "Error in src/components/BrokenComponent.tsx", "./app/page.tsx", etc.
+          ERROR_FILES=$(echo "${{ steps.error-logs.outputs.raw_logs }}" | \
+            grep -oE '[./]?[a-zA-Z0-9_/-]+\.(js|ts|jsx|tsx|json)[: ]' | \
+            sed 's/[: ].*$//' | \
+            sed 's|^\./||' | \
+            sort -u | \
+            grep -v "^node_modules" | \
+            grep -v "^\.next" || echo "")
+          
+          echo "📝 Files mentioned in errors:"
+          echo "$ERROR_FILES" || echo "(none)"
+          
+          echo ""
+          echo "🔍 Step 3: Combining and deduplicating..."
+          # Combine changed files and error files, deduplicate
+          ALL_FILES=$(echo -e "$CHANGED_FILES\n$ERROR_FILES" | grep -v "^$" | sort -u)
+          
+          # Limit to max 8 files to keep token usage reasonable
+          LIMITED_FILES=$(echo "$ALL_FILES" | head -8)
+          
+          # If still no files found, use smart fallback
+          if [ -z "$LIMITED_FILES" ]; then
+            echo "⚠️ No source files found in diff or errors. Using smart fallback..."
+            
+            # Step 1: Check if config files changed
+            CONFIG_FILES=$(git diff --name-only ${{ github.event.workflow_run.head_sha }}~1 ${{ github.event.workflow_run.head_sha }} 2>/dev/null | grep -E '(package\.json|tsconfig\.json|next\.config)' || echo "")
+            
+            # Step 2: Find actual source files that exist in the repo (likely broken)
+            # Look for common Next.js app structure files
+            EXISTING_SOURCE_FILES=""
+            for FILE in "app/page.tsx" "app/layout.tsx" "src/app/page.tsx" "src/app/layout.tsx" \
+                        "src/components/BrokenComponent.tsx" "components/BrokenComponent.tsx" \
+                        "pages/index.tsx" "pages/_app.tsx"; do
+              if [ -f "$FILE" ]; then
+                EXISTING_SOURCE_FILES="$EXISTING_SOURCE_FILES $FILE"
+              fi
+            done
+            
+            # Step 3: Combine config + existing source files (limit to 5 total)
+            LIMITED_FILES=$(echo -e "$CONFIG_FILES\n$EXISTING_SOURCE_FILES" | grep -v "^$" | sort -u | head -5)
+            
+            echo "📦 Fallback files found:"
+            echo "$LIMITED_FILES" || echo "(none)"
+          fi
+          
+          echo ""
+          echo "✅ Final files to analyze (max 8):"
+          echo "$LIMITED_FILES" || echo "(none - will fail)"
+          
+          echo "source_files<<EOF" >> $GITHUB_OUTPUT
+          echo "$LIMITED_FILES"
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          # Count files for logging
+          FILE_COUNT=$(echo "$LIMITED_FILES" | grep -v "^$" | wc -l | tr -d ' ')
+          echo "📊 Total files to send: $FILE_COUNT"
+
+      - name: 🤖 Attempt Sentinel Auto-Fix
+        id: sentinel-fix
+        continue-on-error: true
+        run: |
+          RETRY_DEPTH=3
+          
+          # Build source code payload - only from detected files (smart indexing)
+          SOURCE_CODE=""
+          FILES_TO_SEND="${{ steps.source-files.outputs.source_files }}"
+          
+          if [ -z "$FILES_TO_SEND" ] || [ "$FILES_TO_SEND" = "" ]; then
+            echo "❌ No files detected from diff/errors/fallback. Cannot proceed."
+            echo "This might indicate:"
+            echo "  - The commit didn't change any source files"
+            echo "  - Error logs don't mention specific files"
+            echo "  - No source files exist in the repo"
+            exit 1
+          fi
+          
+          echo "📁 Processing files: $FILES_TO_SEND"
+          
+          # Read only the detected files (max 8 files, max 50KB each)
+          FILE_COUNT=0
+          for FILE in $FILES_TO_SEND; do
+            if [ -f "$FILE" ] && [ -r "$FILE" ]; then
+              FILE_SIZE=$(stat -f%z "$FILE" 2>/dev/null || stat -c%s "$FILE" 2>/dev/null || echo "0")
+              if [ "$FILE_SIZE" -lt 50000 ]; then
+                CONTENT=$(cat "$FILE" 2>/dev/null || echo "Could not read file")
+                SOURCE_CODE="$SOURCE_CODE\n--- $FILE ---\n$CONTENT"
+                FILE_COUNT=$((FILE_COUNT + 1))
+                echo "✅ Added $FILE ($FILE_SIZE bytes)"
+              else
+                # For large files, send first 1000 lines
+                CONTENT=$(head -1000 "$FILE" 2>/dev/null || echo "Could not read file")
+                SOURCE_CODE="$SOURCE_CODE\n--- $FILE (first 1000 lines) ---\n$CONTENT"
+                FILE_COUNT=$((FILE_COUNT + 1))
+                echo "⚠️ Added $FILE (truncated to 1000 lines, original: $FILE_SIZE bytes)"
+              fi
+            fi
+          done
+          
+          if [ "$FILE_COUNT" -eq 0 ]; then
+            echo "❌ No files could be read. Cannot proceed with fix."
+            exit 1
+          fi
+          
+          echo ""
+          echo "🧪 Attempting auto-fix with retry depth: $RETRY_DEPTH"
+          echo "📁 Files to analyze: $FILE_COUNT file(s)"
+          echo "📝 Error logs: $(echo "${{ steps.error-logs.outputs.error_logs }}" | wc -c) characters"
+          echo "📝 Source code: $(echo "$SOURCE_CODE" | wc -c) characters"
+          
+          # Prepare JSON payload
+          ERROR_LOGS_JSON=$(echo "${{ steps.error-logs.outputs.error_logs }}" | jq -R -s .)
+          SOURCE_CODE_JSON=$(echo "$SOURCE_CODE" | jq -R -s .)
+          
+          # Call Sentinel API and parse streaming response
+          RESPONSE=$(curl -s -X POST "${{ secrets.SENTINEL_API_URL || 'https://sentinel-auto-fixer.vercel.app' }}/api/agent" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.SENTINEL_API_KEY }}" \
+            -d "{
+              \"errorLogs\": $ERROR_LOGS_JSON,
+              \"sourceCode\": $SOURCE_CODE_JSON,
+              \"retryDepth\": $RETRY_DEPTH,
+              \"github\": {
+                \"repo\": \"${{ github.repository }}\",
+                \"sha\": \"${{ github.event.workflow_run.head_sha }}\",
+                \"workflow\": \"${{ github.event.workflow_run.name }}\"
+              }
+            }")
+          
+          echo "🔍 Raw API Response (first 500 chars):"
+          echo "$RESPONSE" | head -c 500
+          echo ""
+          
+          # Parse streaming response (SSE format: data: {...})
+          # Extract the last "data:" line which should be the result
+          RESULT_JSON=$(echo "$RESPONSE" | grep "^data:" | tail -1 | sed 's/^data: //' || echo "")
+          
+          # If we got a JSON response directly (non-streaming), use that
+          if echo "$RESPONSE" | jq -e '.success' > /dev/null 2>&1; then
+            RESULT_JSON="$RESPONSE"
+          fi
+          
+          # Check if fix was successful
+          if [ -n "$RESULT_JSON" ] && echo "$RESULT_JSON" | jq -e '.success // false' > /dev/null 2>&1; then
+            echo "✅ Auto-fix successful!"
+            echo "pr_url<<EOF" >> $GITHUB_OUTPUT
+            echo "$RESULT_JSON" | jq -r '.pr_url // "No PR URL"'
+            echo "EOF" >> $GITHUB_OUTPUT
+            echo "fix_summary<<EOF" >> $GITHUB_OUTPUT
+            echo "$RESULT_JSON" | jq -r '.fix_summary // "Auto-fix applied"'
+            echo "EOF" >> $GITHUB_OUTPUT
+            exit 0
+          else
+            echo "❌ Auto-fix failed or no fix generated"
+            if [ -n "$RESULT_JSON" ]; then
+              echo "Result: $RESULT_JSON"
+              echo "error_details<<EOF" >> $GITHUB_OUTPUT
+              echo "$RESULT_JSON" | jq -r '.error // .explanation // "Unknown error"' 2>/dev/null || echo "Failed to parse response"
+              echo "EOF" >> $GITHUB_OUTPUT
+            else
+              echo "error_details<<EOF" >> $GITHUB_OUTPUT
+              echo "No valid response from API. Check if error logs and source code were provided."
+              echo "EOF" >> $GITHUB_OUTPUT
+            fi
+            exit 1
+          fi
+

@@ -32,19 +32,129 @@ SENTINEL_API_KEY=your_generated_api_key
 After deploy: `https://your-project.vercel.app`
 
 ### **5. Add to Any Repository**
+
+**Option A: Copy the example workflow** (recommended)
+```bash
+# Copy the example workflow from this repo
+cp .github/workflows/example-sentinel-fix.yml .github/workflows/sentinel-fix.yml
+# Then customize the workflow name and branch in the file
+```
+
+**Option B: Create manually**
 Create `.github/workflows/sentinel-fix.yml`:
 ```yaml
 name: 🤖 Sentinel Auto-Fix
-on: [workflow_run]
+on:
+  workflow_run:
+    workflows: ["CI"]  # Trigger on your CI workflow
+    types: [completed]
+    branches: [main]
+
 jobs:
   fix:
     runs-on: ubuntu-latest
     if: github.event.workflow_run.conclusion == 'failure'
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
     steps:
-      - uses: your-username/sentinel@main
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          sentinel-api-url: 'https://your-project.vercel.app'
-          sentinel-api-key: ${{ secrets.SENTINEL_API_KEY }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Authenticate GitHub CLI
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+
+      - name: Get error logs from failed run
+        id: error-logs
+        run: |
+          # Multiple fallback methods for robust error extraction
+          LOGS=$(gh run view ${{ github.event.workflow_run.id }} --log 2>&1 || echo "")
+          if [ -z "$LOGS" ] || echo "$LOGS" | grep -q "Failed\|not found"; then
+            # Fallback to GitHub API
+            LOGS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/logs" || echo "")
+          fi
+          ERRORS=$(echo "$LOGS" | grep -i -A 3 -B 3 "error\|failed\|exception\|fail\|cannot\|undefined\|null\|TypeError" | head -200 || echo "$LOGS" | tail -100)
+          echo "error_logs<<EOF" >> $GITHUB_OUTPUT
+          echo "$ERRORS"
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Smart file detection
+        id: source-files
+        run: |
+          # Step 1: Get changed files from commit diff
+          CHANGED=$(git diff --name-only ${{ github.event.workflow_run.head_sha }}~1 ${{ github.event.workflow_run.head_sha }} 2>/dev/null | grep -E '\.(js|ts|jsx|tsx|json)$' || echo "")
+          
+          # Step 2: Extract file paths from error logs
+          ERROR_FILES=$(echo "${{ steps.error-logs.outputs.error_logs }}" | \
+            grep -oE '[./]?[a-zA-Z0-9_/-]+\.(js|ts|jsx|tsx|json)[: ]' | \
+            sed 's/[: ].*$//' | sed 's|^\./||' | sort -u | \
+            grep -v "^node_modules" || echo "")
+          
+          # Step 3: Combine and limit to max 8 files (token-efficient)
+          ALL_FILES=$(echo -e "$CHANGED\n$ERROR_FILES" | grep -v "^$" | sort -u | head -8)
+          
+          # Step 4: Fallback to common source files if nothing found
+          if [ -z "$ALL_FILES" ]; then
+            for FILE in "app/page.tsx" "src/app/page.tsx" "pages/index.tsx" "package.json"; do
+              [ -f "$FILE" ] && ALL_FILES="$ALL_FILES $FILE"
+            done
+            ALL_FILES=$(echo "$ALL_FILES" | head -5)
+          fi
+          
+          echo "source_files<<EOF" >> $GITHUB_OUTPUT
+          echo "$ALL_FILES"
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: 🤖 Call Sentinel API
+        id: sentinel-fix
+        continue-on-error: true
+        run: |
+          # Build source code payload (max 8 files, max 50KB each)
+          SOURCE_CODE=""
+          for FILE in ${{ steps.source-files.outputs.source_files }}; do
+            [ -f "$FILE" ] && SOURCE_CODE="$SOURCE_CODE\n--- $FILE ---\n$(head -1000 "$FILE" 2>/dev/null || cat "$FILE")"
+          done
+          
+          # Call Sentinel API
+          RESPONSE=$(curl -s -X POST "https://your-project.vercel.app/api/agent" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.SENTINEL_API_KEY }}" \
+            -d "{
+              \"errorLogs\": $(echo "${{ steps.error-logs.outputs.error_logs }}" | jq -R -s .),
+              \"sourceCode\": $(echo "$SOURCE_CODE" | jq -R -s .),
+              \"retryDepth\": 3,
+              \"github\": {
+                \"repo\": \"${{ github.repository }}\",
+                \"sha\": \"${{ github.event.workflow_run.head_sha }}\",
+                \"workflow\": \"CI\"
+              }
+            }")
+          
+          # Parse streaming response
+          RESULT=$(echo "$RESPONSE" | grep "^data:" | tail -1 | sed 's/^data: //' || echo "$RESPONSE")
+          
+          if echo "$RESULT" | jq -e '.success // false' > /dev/null 2>&1; then
+            echo "✅ Auto-fix successful!"
+            echo "pr_url<<EOF" >> $GITHUB_OUTPUT
+            echo "$RESULT" | jq -r '.pr_url'
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Auto-fix failed"
+            exit 1
+          fi
+```
+
+**Or use the simplified action** (if you prefer):
+```yaml
+- uses: your-username/sentinel-auto-fixer@main
+  with:
+    sentinel-api-url: 'https://your-project.vercel.app'
+    sentinel-api-key: ${{ secrets.SENTINEL_API_KEY }}
 ```
 
 ## 🎯 What It Does
@@ -96,14 +206,20 @@ NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
 
 ### GitHub Action Options
 ```yaml
-- uses: your-username/sentinel@main
+- uses: your-username/sentinel-auto-fixer@main
   with:
     sentinel-api-url: 'https://your-app.vercel.app'
     sentinel-api-key: ${{ secrets.SENTINEL_API_KEY }}
-    retry-depth: 3  # 1-3 attempts
-    base-branch: 'main'
-    file-patterns: '*.js,*.ts,*.py'
+    retry-depth: 3  # 1-3 attempts (default: 3)
+    base-branch: 'main'  # Branch to create PR against
+    file-patterns: '*.js,*.ts,*.py'  # File patterns to analyze
 ```
+
+**Note**: The workflow automatically:
+- Detects changed files from commit diff
+- Extracts file paths from error logs
+- Limits analysis to max 8 files (token-efficient)
+- Falls back to common source files if needed
 
 ## 📚 API Reference
 
