@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     const initialState = createInitialState(errorLogs, sourceCode);
 
     // Run the compiled graph with configurable retry logic
-    let finalState;
+    let finalState: AgentState | null = null;
     let attempts = 0;
     const maxAttempts = retryDepth;
     const retryDelay = 1000; // 1 second
@@ -81,6 +81,11 @@ export async function POST(request: NextRequest) {
         // Wait before retrying
         await new Promise(resolve => setTimeout(resolve, retryDelay * attempts));
       }
+    }
+
+    // Ensure finalState is assigned (should always be true after successful loop)
+    if (!finalState) {
+      throw new Error('Unexpected error: finalState was not assigned after graph execution');
     }
 
     // Handle GitHub integration if provided
