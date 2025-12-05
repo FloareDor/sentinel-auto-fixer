@@ -30,7 +30,7 @@ export interface GeminiConfig {
  * Default configuration for Gemini calls
  */
 const DEFAULT_CONFIG: Required<GeminiConfig> = {
-  model: 'models/gemini-2.5-flash-lite',
+  model: 'models/gemini-2.5-flash',
   temperature: 0.7,
   maxTokens: 4096,
   systemInstruction: '',

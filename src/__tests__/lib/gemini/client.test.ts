@@ -60,7 +60,7 @@ describe('GeminiClient', () => {
 
       const client = new GeminiClient();
 
-      expect(google).toHaveBeenCalledWith('models/gemini-2.5-flash-lite');
+      expect(google).toHaveBeenCalledWith('models/gemini-2.5-flash');
       expect(process.env.GOOGLE_GENERATIVE_AI_API_KEY).toBe('test-key');
     });
 

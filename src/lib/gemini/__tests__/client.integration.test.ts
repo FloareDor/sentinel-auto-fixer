@@ -157,7 +157,7 @@ Provide the patched code.`;
         }
 
         const client = createGeminiClient({
-          model: 'models/gemini-2.5-flash-lite',
+          model: 'models/gemini-2.5-flash',
           temperature: 0.1,
           maxTokens: 100,
         });
